@@ -356,3 +356,50 @@ real-world scale and orientation.
 
 **Consequences.** The import is a guess and says so. A model exported in metres,
 Y-up, facing +X needs no correction.
+
+## ADR-029: Wrap masking instead of material splitting
+
+**Context.** Imported cars are often one mesh with one baked texture: the
+windows are pixels in that texture, not separate materials. Painting the texture
+therefore paints the glass, which looked like a mistake.
+
+**Decision.** Detect glass geometrically (rake angle, cabin height band, inset
+width against the local body profile), store it as a `window` panel, and rasterise
+the panel map into a UV-space mask. The composer draws the model's original pixels
+back over the masked area, so windows stay clear by default and
+`livery.wrapGlass` turns the behaviour off. The mask is rebuilt from the panel map
+rather than stored, so it always follows panel corrections and costs no project
+size.
+
+**Consequences.** Glass detection is a heuristic and can miss an unusually raked
+screen; the panel tools are the escape hatch. Models with separate glass
+materials never needed the mask, and the mask builder returns `null` for them.
+
+## ADR-030: PSD as the layer exchange format
+
+**Context.** Users want to paint foil layers in Photoshop rather than in a
+canvas-based editor.
+
+**Decision.** Export a layered PSD with one layer per foil layer, embedding the
+layer id, kind, mapping and blend mode in the layer name. Import matches by id,
+updates layers in place and adds unknown layers. Projected layers keep their
+mapping, so re-imported pixels still follow the model UVs. A PNG folder with a
+`layers.json` manifest is the fallback for editors without PSD support.
+
+**Consequences.** The round-trip is a pixel round-trip: a vector stripe returns as
+a raster image layer. The project file stays small because imported rasters are
+stored as artwork assets on disk, not inline in JSON.
+
+## ADR-031: MCP server works on project files
+
+**Context.** An AI client should be able to drive the tool, but rendering and
+texture composition need a canvas.
+
+**Decision.** Ship a stdio MCP server that reads and writes `project.json`
+directly and reuses the app's Zod schema and pure panel/livery helpers. It covers
+project, panel, livery and manifest operations and deliberately excludes render
+and PSD export.
+
+**Consequences.** The server is deterministic and testable without a display, and
+changes land on disk where the studio sees them. Features that need WebGL stay in
+the app, which keeps one implementation of each algorithm.

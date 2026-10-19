@@ -23,9 +23,18 @@ import type {
 } from './project/schema';
 import { invalidateArtworkCache } from './graphics/artwork';
 import { importVehicleFromFile } from './vehicle/importVehicle';
+import { artworkFromDataUrl } from './project/service';
+import {
+  exportLayerFolder,
+  exportLiveryPsd,
+  importLiveryPsd,
+  parseLayerFileName,
+  type ImportedLayer,
+} from './livery/exchange';
+import type { ImportedFile } from './platform/types';
 import { deletePanel, mergePanels, renamePanel } from './vehicle/panelEdit';
 import { presetLayers } from './livery/presets';
-import { clearPendingAssets } from './vehicle/pending';
+import { bytesToBase64, clearPendingAssets } from './vehicle/pending';
 
 function notify(
   kind: 'info' | 'success' | 'warning' | 'error',
@@ -432,6 +441,140 @@ export function useProjectActions() {
     [updateProject],
   );
 
+  const importLayers = useCallback(async (layers: ImportedLayer[], label: string) => {
+    const artworks = [] as ArtworkAsset[];
+    for (const layer of layers) {
+      artworks.push(await artworkFromDataUrl(layer.name, layer.dataUrl));
+    }
+    useProjectStore.getState().update((draft) => {
+      draft.artwork.push(...artworks);
+      draft.vehicle.livery.enabled = true;
+      layers.forEach((imported, index) => {
+        const artworkId = artworks[index].id;
+        const existing = imported.id
+          ? draft.vehicle.livery.layers.find((layer) => layer.id === imported.id)
+          : undefined;
+        /*
+         * Imported pixels are already baked in the layer's own space, so the
+         * box is the whole canvas centred on it: applying the old transform
+         * again would shrink and offset the artwork.
+         */
+        const box = { u: 0.5, v: 0.5, w: 1, h: 1 };
+        if (existing) {
+          existing.kind = 'image';
+          existing.mapping = imported.mapping;
+          existing.blend = imported.blend;
+          existing.opacity = imported.opacity;
+          existing.visible = imported.visible;
+          existing.imageArtworkId = artworkId;
+          existing.name = imported.name;
+          Object.assign(existing, box);
+        } else {
+          draft.vehicle.livery.layers.push(
+            createLiveryLayer('image', {
+              name: imported.name,
+              mapping: imported.mapping,
+              blend: imported.blend,
+              opacity: imported.opacity,
+              visible: imported.visible,
+              imageArtworkId: artworkId,
+              ...box,
+            }),
+          );
+        }
+      });
+    }, label);
+    return true;
+  }, []);
+
+  const exportLiveryPsdFile = useCallback(async (images: Map<string, HTMLImageElement>) => {
+    const project = useProjectStore.getState().project;
+    if (!project) return false;
+    const bytes = exportLiveryPsd(project.vehicle.livery, images);
+    const base64 = bytesToBase64(bytes);
+    const written = await platform.saveExport(
+      `${project.name.replace(/[^a-z0-9-_]+/gi, '-').toLowerCase()}-livery.psd`,
+      { base64 },
+    );
+    if (written) {
+      notify('success', 'PSD exported', 'Edit the layers in Photoshop, then import the PSD back.');
+    }
+    return Boolean(written);
+  }, []);
+
+  const importLiveryPsdFile = useCallback(async (file: ImportedFile) => {
+    const binary = atob(file.dataUrl.slice(file.dataUrl.indexOf(',') + 1));
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    let layers: ImportedLayer[];
+    try {
+      layers = importLiveryPsd(bytes.buffer as ArrayBuffer);
+    } catch (error) {
+      notify('error', 'Could not read the PSD', errorMessage(error));
+      return false;
+    }
+    if (layers.length === 0) {
+      notify('warning', 'No layers found', 'The PSD contained no editable pixel layers.');
+      return false;
+    }
+    await importLayers(layers, 'Import PSD layers');
+    notify(
+      'success',
+      'PSD imported',
+      `${layers.length} layer${layers.length === 1 ? '' : 's'} applied to the vehicle.`,
+    );
+    return true;
+  }, [importLayers]);
+
+  const exportLayerFiles = useCallback(
+    async (images: Map<string, HTMLImageElement>) => {
+      const project = useProjectStore.getState().project;
+      if (!project) return false;
+      const root = useProjectStore.getState().root;
+      const { files, manifest } = exportLayerFolder(project.vehicle.livery, images);
+      const directory = root ? `${root}/livery-layers` : 'browser:downloads';
+      for (const file of files) {
+        await platform.writeExportFile(directory, file.name, { base64: file.base64 });
+      }
+      await platform.writeExportFile(directory, 'layers.json', { text: manifest });
+      notify(
+        'success',
+        'Layer folder exported',
+        root
+          ? `Written to ${directory}. Edit the PNGs, then use Sync layers.`
+          : 'Downloaded as PNG files with a layers.json manifest.',
+      );
+      return true;
+    },
+    [],
+  );
+
+  const importLayerFiles = useCallback(async (files: ImportedFile[]) => {
+    const root = useProjectStore.getState().root;
+    const directory = root ? `${root}/livery-layers` : null;
+    const layers: ImportedLayer[] = [];
+    for (const file of files) {
+      if (!file.name.toLowerCase().endsWith('.png')) continue;
+      const parsed = parseLayerFileName(file.name);
+      if (!parsed) continue;
+      layers.push({ ...parsed, dataUrl: file.dataUrl });
+    }
+    if (layers.length === 0) {
+      notify('warning', 'Nothing to sync', 'Pick the layer PNGs exported by WrapForge.');
+      return false;
+    }
+    if (directory) {
+      try {
+        await platform.writeExportFile(directory, 'layers.last-sync.json', {
+          text: JSON.stringify({ syncedAt: new Date().toISOString(), layers: layers.length }),
+        });
+      } catch {
+        // Sync still applies even when the marker file cannot be written.
+      }
+    }
+    return importLayers(layers, 'Sync layers from PNGs');
+  }, [importLayers]);
+
   const updateLivery = useCallback((mutator: (livery: Livery) => void, label: string) => {
     useProjectStore.getState().update((draft) => {
       mutator(draft.vehicle.livery);
@@ -515,6 +658,10 @@ export function useProjectActions() {
     setPaintColor,
     updateProject,
     importVehicleModel,
+    exportLiveryPsdFile,
+    importLiveryPsdFile,
+    exportLayerFiles,
+    importLayerFiles,
     renameVehiclePanel,
     mergeVehiclePanels,
     deleteVehiclePanel,

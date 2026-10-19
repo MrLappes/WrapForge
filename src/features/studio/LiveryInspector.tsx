@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import {
   ChevronDown,
+  Download,
   Eraser,
+  FileImage,
+  Upload,
   Image as ImageIcon,
   Layers,
   Paintbrush,
@@ -42,6 +45,11 @@ export interface LiveryInspectorProps {
   onClearPainting: () => void;
   onApplyPreset: (presetId: string) => void;
   onExportTexture: () => void;
+  onExportPsd: () => void;
+  onImportPsd: () => void;
+  onExportLayers: () => void;
+  onSyncLayers: () => void;
+  exchanging: boolean;
   strokeCount: number;
 }
 
@@ -208,6 +216,45 @@ export function LiveryInspector(props: LiveryInspectorProps) {
         <p className="small muted">
           Tint keeps the model&apos;s baked shading and recolours it, which looks like real paint on
           scanned models.
+        </p>
+        <Toggle
+          label="Wrap over glass"
+          hint="Off keeps the model's windows clear; on lets the foil cover them."
+          checked={livery.wrapGlass}
+          onChange={(checked) =>
+            props.onUpdate((draft) => {
+              draft.wrapGlass = checked;
+            }, 'Toggle wrapping over glass')
+          }
+        />
+      </div>
+
+      <div className="inspector-section">
+        <h3>
+          <FileImage size={13} className="dim" /> Layer exchange
+        </h3>
+        <div className="row wrap">
+          <Button size="sm" onClick={props.onExportPsd} disabled={props.exchanging}>
+            <Download size={12} />
+            Export PSD
+          </Button>
+          <Button size="sm" onClick={props.onImportPsd} disabled={props.exchanging}>
+            <Upload size={12} />
+            Import PSD
+          </Button>
+        </div>
+        <div className="row wrap" style={{ marginTop: 6 }}>
+          <Button size="sm" variant="ghost" onClick={props.onExportLayers} disabled={props.exchanging}>
+            Export layer PNGs
+          </Button>
+          <Button size="sm" variant="ghost" onClick={props.onSyncLayers} disabled={props.exchanging}>
+            Sync layer PNGs
+          </Button>
+        </div>
+        <p className="small muted" style={{ marginTop: 8 }}>
+          The PSD keeps one layer per foil layer with blend mode, opacity and visibility. Edit it in
+          Photoshop, save, then import it back and the car updates. Layer PNGs are the fallback for
+          other editors.
         </p>
       </div>
 

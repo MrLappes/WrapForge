@@ -97,6 +97,8 @@ export function RenderStudioView() {
     baseImage,
     images,
     scene,
+    panels: project?.vehicle.panels,
+    panelMap: project?.vehicle.panelMap ?? null,
   });
 
   useEffect(() => {

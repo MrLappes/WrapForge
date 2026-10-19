@@ -81,6 +81,67 @@ export function createDesktopPlatform(): Platform {
       };
     },
 
+    async importFile(title: string, extensions: string[]): Promise<ImportedFile | null> {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const selected = await open({
+        multiple: false,
+        directory: false,
+        title,
+        filters: [{ name: title, extensions }],
+      });
+      if (typeof selected !== 'string') return null;
+      const payload = await invokeCommand<{
+        name: string;
+        mimeType: string;
+        base64: string;
+        text: string | null;
+        byteLength: number;
+      }>('import_file', { path: selected });
+      if (payload.byteLength > MAX_IMPORT_BYTES) {
+        throw new Error(
+          `This file is ${(payload.byteLength / 1024 / 1024).toFixed(1)} MB; imports are limited to 50 MB.`,
+        );
+      }
+      return {
+        name: payload.name,
+        mimeType: payload.mimeType,
+        dataUrl: `data:${payload.mimeType};base64,${payload.base64}`,
+        text: payload.text ?? undefined,
+        byteLength: payload.byteLength,
+      };
+    },
+
+    async importFiles(title: string, extensions: string[]): Promise<ImportedFile[]> {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const selected = await open({
+        multiple: true,
+        directory: false,
+        title,
+        filters: [{ name: title, extensions }],
+      });
+      if (!selected) return [];
+      const paths = Array.isArray(selected) ? selected : [selected];
+      const results: ImportedFile[] = [];
+      for (const path of paths) {
+        const payload = await invokeCommand<{
+          name: string;
+          mimeType: string;
+          base64: string;
+          text: string | null;
+          byteLength: number;
+        }>('import_file', { path });
+        if (payload.byteLength > MAX_IMPORT_BYTES) continue;
+        results.push({
+          name: payload.name,
+          mimeType: payload.mimeType,
+          dataUrl: `data:${payload.mimeType};base64,${payload.base64}`,
+          text: payload.text ?? undefined,
+          byteLength: payload.byteLength,
+        });
+      }
+      return results;
+    },
+
     async importVehicleModel(): Promise<ImportedFile | null> {
       const { open } = await import('@tauri-apps/plugin-dialog');
       const selected = await open({

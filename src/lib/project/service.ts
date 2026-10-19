@@ -185,6 +185,26 @@ export async function importArtworkAsset(
   };
 }
 
+/** Builds a raster artwork asset from in-memory pixels (PSD/layer imports). */
+export async function artworkFromDataUrl(name: string, dataUrl: string): Promise<ArtworkAsset> {
+  const id = createId('art');
+  const dimensions = await imageDimensions(dataUrl);
+  return {
+    id,
+    name: name.replace(/\.png$/i, ''),
+    kind: 'raster',
+    mimeType: 'image/png',
+    sourcePath: artworkStoragePath(id, 'image/png', 'layer.png'),
+    embeddedSource: dataUrl,
+    pixelWidth: dimensions.width,
+    pixelHeight: dimensions.height,
+    physicalWidthMm: (dimensions.width / 96) * 25.4,
+    physicalHeightMm: (dimensions.height / 96) * 25.4,
+    attribution: '',
+    createdAt: nowIso(),
+  };
+}
+
 export function createTextArtwork(
   content: string,
   options: Partial<{

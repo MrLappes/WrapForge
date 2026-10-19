@@ -9,6 +9,19 @@ break compatibility.
 
 ### Added
 
+- Window detection: windscreens, rear screens and side glass are classified as
+  `window` panels from rake and inset width, and shown in the panel list.
+- Wrap mask: on models whose glass shares the body texture, the livery is clipped
+  in UV space so windows keep their original pixels. "Wrap over glass" opts out.
+- Layered PSD export and import: one Photoshop layer per foil layer with blend
+  mode, opacity and visibility, matched back by an embedded id marker.
+- Layer PNG folder export (`livery-layers/` + `layers.json`) and sync.
+- MCP server (`npm run mcp`) exposing project, panel, livery and export-manifest
+  operations over stdio, validated with the app's own schema.
+- Rebuilt the bundled sample hatchback: lofted body with real wheel arches,
+  separate glass, wheels, lights, mirrors and spoiler, 13 curved wrap panels.
+- Brighter Blender stage lighting so dark paints still read.
+
 - Import any self-contained glTF vehicle: unit and orientation normalisation,
   front detection, ground placement, and heuristic panel detection with per-panel
   confidence. Verified on a real 4.3 m car scan (14 panels, 70% of body
@@ -55,6 +68,9 @@ break compatibility.
   windscreens are no longer counted as bonnet area.
 
 ### Fixed
+
+- Imported layers were anchored at the corner of the texture instead of centred,
+  which pushed most of a PSD round-trip off the UV islands.
 
 - The studio no longer loses the model's base texture when you leave the studio
   and come back: the base-texture hook was revoking a blob URL it did not own.
@@ -111,6 +127,9 @@ First public alpha. Linux only; no signed installers.
   of hard-coding the older `BLENDER_EEVEE_NEXT` name.
 
 ### Fixed
+
+- Imported layers were anchored at the corner of the texture instead of centred,
+  which pushed most of a PSD round-trip off the UV islands.
 
 - Sample asset 404s in development by serving `assets/` as Vite's public
   directory.

@@ -136,6 +136,20 @@ bonnets and bumpers on ordinary car models; it cannot know where a manufacturer
 put a shut line. The panels drive highlighting, print planning and organisation.
 Painting does not depend on them.
 
+### Windows
+
+Windscreens, rear screens and side glass are detected as their own panels. On a
+model whose glass is baked into the same texture as the paint (common for scans),
+the livery is **masked off the glass** by default: layers and brushwork stop at
+the window edges, and the model's original glass shows through.
+
+Turn on **Wrap over glass** in the Livery tab when the design should run across
+the windows too. Removing a window panel in the Panels tab also makes that region
+wrappable, which is the per-panel override.
+
+Glass that is a separate material (the bundled sample, many production models) is
+never painted: it is not part of the body.
+
 ### Correcting the detection
 
 Open the studio, select the **Panels** tab, and click a panel (or click it in the
@@ -200,6 +214,29 @@ Notes:
   body, so a layer's blend mode affects the group, not the paint underneath.
 - The atlas is not a physical print layout. Use **Print Layout** with the panel
   dimensions for installation output.
+
+### Editing layers in Photoshop
+
+WrapForge can hand the layer stack to a normal image editor and take it back.
+
+1. **Export PSD** in the Livery tab writes a layered PSD at the livery
+   resolution. Every foil layer becomes a Photoshop layer with its blend mode,
+   opacity and visibility, named `<layer> [wf:<id>|<kind>|<mapping>|...]`.
+2. Edit or paint in Photoshop (or any PSD-capable editor) and save.
+3. **Import PSD** reads the file back. Layers whose marker matches an existing
+   layer are updated in place — same position, opacity and mapping — and unknown
+   layers are added as new raster layers. The car updates immediately.
+
+Projected layers keep their projection: an imported side layer is still projected
+through the model's UVs instead of being pasted flat.
+
+**Export layer PNGs** writes one PNG per layer, plus `layers.json`, into
+`livery-layers/` next to the project, for editors that cannot open PSD. Edit the
+PNGs and use **Sync layer PNGs** to load them back; layers are matched by the id
+in the file name.
+
+Rasters replace vector shapes when they come back in: the exchange is a pixel
+round-trip, so keep the original project if you want to keep editing shapes.
 
 ## 7. Artwork
 

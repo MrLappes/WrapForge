@@ -37,6 +37,11 @@ or redistributed.
 | Brush painting | Vector strokes with alpha and erase, one undo step per stroke |
 | Blender | New integration test renders with the livery atlas and a transparent background |
 | Second model | Khronos CC0 ToyCar (5.4 MB, 109k triangles, no semantic names): imported, rescaled 0.07 m → 4.35 m, 14 panels, preset applied |
+| Windows | 4 window panels on the Leapmotor (windscreen 2.12 m², rear screen 0.90 m², side glass ~1.0 m²); wrap mask toggling changes only the greenhouse |
+| PSD round-trip | 10-layer PSD at 2048²; a magenta edit made through ag-psd outside the app appeared on the car; layer count stayed 10 |
+| Layer folder | 10 PNGs with file-safe metadata names; re-sync kept the stack at 11 layers (updated in place) |
+| MCP server | 14 tools exercised through the SDK client: create, panels, presets, layer CRUD, options, manifest, validate |
+| Sample hatch | Lofted body with arch cuts, glass cabin, 4 wheels, lights, spoiler; 13 panels with symmetric areas; 4.36 m long, grounded at 0 |
 | Panel correction | Rename, merge, and remove verified in the browser on the 14-panel import; undo restores the original map |
 | Layout | No horizontal overflow at 1440, 1180, 1024, 900, and 820 px; inspector tabs wrap; base texture survives studio remounts |
 | Tests | Frontend 12 files / 69 tests, Python 53 (incl. 3 Blender), Rust 13, Playwright 1 + 1 opt-in import test |

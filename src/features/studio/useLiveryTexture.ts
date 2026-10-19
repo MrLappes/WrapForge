@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Livery, LiveryStroke } from '../../lib/project/schema';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Livery, LiveryStroke, PanelDefinition, PanelMap } from '../../lib/project/schema';
 import {
   composeLivery,
   paintDab,
@@ -9,6 +9,7 @@ import {
   type LiveryScene,
   type StrokeStyle,
 } from '../../lib/livery/render';
+import { buildGlassOverlay, buildWrapMask } from '../../lib/livery/wrapMask';
 import { nowIso } from '../../lib/ids';
 
 export type PaintPhase = 'start' | 'move' | 'end';
@@ -39,14 +40,17 @@ export function useLiveryTexture(params: {
   baseImage: HTMLImageElement | null;
   images: Map<string, HTMLImageElement>;
   scene: LiveryScene | null;
+  panels?: PanelDefinition[];
+  panelMap?: PanelMap | null;
 }): LiveryTextureApi {
-  const { livery, baseImage, images, scene } = params;
+  const { livery, baseImage, images, scene, panels, panelMap } = params;
   const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
   const [version, setVersion] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const resultRef = useRef<HTMLCanvasElement | null>(null);
+  const glassRef = useRef<HTMLCanvasElement | null>(null);
   const staticRef = useRef<HTMLCanvasElement | null>(null);
   const paintRef = useRef<HTMLCanvasElement | null>(null);
   const strokeRef = useRef<LiveryStroke | null>(null);
@@ -62,12 +66,33 @@ export function useLiveryTexture(params: {
     ctx.clearRect(0, 0, result.width, result.height);
     ctx.drawImage(staticLayer, 0, 0);
     ctx.drawImage(paintLayer, 0, 0);
+    // Glass keeps the model's original texture: drawn last, so neither layers
+    // nor brushwork can bleed onto the windows.
+    const glass = glassRef.current;
+    if (glass) ctx.drawImage(glass, 0, 0);
   }, []);
 
-  const rebuild = useCallback((current: Livery | null, base: HTMLImageElement | null, artwork: Map<string, HTMLImageElement>, liveryScene: LiveryScene | null) => {
+  /*
+   * The mask only makes sense when there is an original texture to preserve:
+   * glass that lives in the same single material as the paint.
+   */
+  const glassOverlay = useMemo(() => {
+    if (!livery || livery.wrapGlass || !baseImage || !scene || !panelMap) return null;
+    const mask = buildWrapMask({
+      scene,
+      panelMap,
+      panels: panels ?? [],
+      size: livery.resolution,
+    });
+    if (!mask) return null;
+    return buildGlassOverlay(mask, baseImage, livery.resolution);
+  }, [livery, baseImage, scene, panelMap, panels]);
+
+  const rebuild = useCallback((current: Livery | null, base: HTMLImageElement | null, artwork: Map<string, HTMLImageElement>, liveryScene: LiveryScene | null, glass: HTMLCanvasElement | null) => {
     if (!current || !current.enabled) {
       staticRef.current = null;
       paintRef.current = null;
+      glassRef.current = null;
       strokeRef.current = null;
       setCanvas(null);
       return;
@@ -87,6 +112,7 @@ export function useLiveryTexture(params: {
       }
       staticRef.current = staticLayer;
       paintRef.current = paintLayer;
+      glassRef.current = glass;
       merge();
       setCanvas(resultRef.current);
       setVersion((value) => value + 1);
@@ -103,11 +129,13 @@ export function useLiveryTexture(params: {
   useEffect(() => {
     setBusy(true);
     const handle = window.setTimeout(() => {
-      rebuild(livery, baseImage, images, scene);
+      rebuild(livery, baseImage, images, scene, glassOverlay);
       setBusy(false);
     }, 40);
     return () => window.clearTimeout(handle);
-  }, [livery, baseImage, images, scene, rebuild]);
+    // `glassOverlay` feeds `glassRef` inside rebuild, so a new overlay must
+    // trigger a recomposition.
+  }, [livery, baseImage, images, scene, glassOverlay, rebuild]);
 
   const paint = useCallback(
     (u: number, v: number, phase: PaintPhase, style: StrokeStyle): LiveryStroke | null => {

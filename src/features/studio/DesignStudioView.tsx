@@ -80,6 +80,7 @@ export function DesignStudioView() {
   const [brush, setBrush] = useState<StrokeStyle>(DEFAULT_BRUSH);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [scene, setScene] = useState<LiveryScene | null>(null);
+  const [exchanging, setExchanging] = useState(false);
   const [panelNameDraft, setPanelNameDraft] = useState('');
   const [mergeTargetId, setMergeTargetId] = useState('');
 
@@ -90,7 +91,14 @@ export function DesignStudioView() {
     root,
   );
   const baseImage = useBaseTexture(livery?.baseTexturePath ?? null, root);
-  const texture = useLiveryTexture({ livery, baseImage, images, scene });
+  const texture = useLiveryTexture({
+    livery,
+    baseImage,
+    images,
+    scene,
+    panels: project?.vehicle.panels,
+    panelMap: project?.vehicle.panelMap ?? null,
+  });
 
   const selectedPanel =
     project?.vehicle.panels.find((panel) => panel.id === ui.selectedPanelId) ?? null;
@@ -101,6 +109,21 @@ export function DesignStudioView() {
     registerViewportCapture(() => viewportRef.current?.capture() ?? null);
     return () => registerViewportCapture(null);
   }, []);
+
+  const runExchange = useCallback(async (task: () => Promise<boolean>) => {
+    setExchanging(true);
+    try {
+      await task();
+    } catch (error) {
+      ui.notify(
+        'error',
+        'Layer exchange failed',
+        error instanceof Error ? error.message : 'The file could not be processed.',
+      );
+    } finally {
+      setExchanging(false);
+    }
+  }, [ui]);
 
   useEffect(() => {
     setPanelNameDraft(selectedPanel?.name ?? '');
@@ -427,6 +450,19 @@ export function DesignStudioView() {
                 onClearPainting={actions.clearPainting}
                 onApplyPreset={actions.applyLiveryPreset}
                 onExportTexture={() => void exportTexture()}
+                onExportPsd={() => void runExchange(() => actions.exportLiveryPsdFile(images))}
+                onImportPsd={() => void runExchange(async () => {
+                  const file = await platform.importFile('Import livery PSD', ['psd']);
+                  if (!file) return false;
+                  return actions.importLiveryPsdFile(file);
+                })}
+                onExportLayers={() => void runExchange(() => actions.exportLayerFiles(images))}
+                onSyncLayers={() => void runExchange(async () => {
+                  const files = await platform.importFiles('Sync layer PNGs', ['png']);
+                  if (files.length === 0) return false;
+                  return actions.importLayerFiles(files);
+                })}
+                exchanging={exchanging}
               />
             ) : (
               <div className="inspector-section">

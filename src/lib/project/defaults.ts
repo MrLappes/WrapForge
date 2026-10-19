@@ -20,6 +20,7 @@ export function createDefaultLivery(): Livery {
     baseTexturePath: null,
     baseTextureSize: 1024,
     finish: { mode: 'tint', color: '#121821', strength: 0.9 },
+    wrapGlass: false,
     layers: [],
     strokes: [],
   };

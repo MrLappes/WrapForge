@@ -24,9 +24,14 @@ limits is worse than no release.
   A wrong region can be renamed, merged into a neighbour, or removed in the
   studio's **Panels** tab; splitting one region into two is not supported yet.
   Confidence per panel is reported.
-- **Glass detection relies on names and material transparency.** A single-mesh
-  model with a baked texture has no separable glass, so paint also lands on the
-  windows.
+- **Glass detection is geometric.** A single-mesh model with a baked texture has
+  no separable glass, so windows are inferred from rake, height and inset width,
+  then masked in UV space. Unusual greenhouses (very raked screens, split rear
+  glass) can be missed; rename or remove the panel, or turn on "Wrap over glass".
+- **The PSD round-trip is pixels, not vectors.** Shapes come back as raster image
+  layers. Keep the project if you want to keep editing the vector shapes.
+- **The MCP server has no renderer.** Rendering and PSD export need a canvas, so
+  those stay in the app.
 - **Meshes without UVs cannot be painted.** They are excluded from the paintable
   body when other meshes in the same model do have UVs.
 - **No measurement verification.** Panel dimensions come from manifest metadata

@@ -20,8 +20,61 @@ const PANEL_SPECS: Record<
   'quarter-R': { name: 'Right rear quarter', category: 'quarter', side: 'right' },
   'bumper-front': { name: 'Front bumper', category: 'bumper', side: 'center' },
   'bumper-rear': { name: 'Rear bumper', category: 'bumper', side: 'center' },
+  windscreen: { name: 'Windscreen', category: 'window', side: 'center' },
+  'rear-window': { name: 'Rear window', category: 'window', side: 'center' },
+  'window-L': { name: 'Left side glass', category: 'window', side: 'left' },
+  'window-R': { name: 'Right side glass', category: 'window', side: 'right' },
   body: { name: 'Body (uncategorised)', category: 'other', side: 'center' },
 };
+
+/** Longitudinal resolution of the half-width profile used for glass. */
+export const PROFILE_BINS = 48;
+
+/**
+ * Widest lateral surface per longitudinal bin. Glass sits inboard of the body
+ * sides, so a triangle that is much narrower than its local peak is a window
+ * rather than a door skin.
+ */
+export function buildWidthProfile(
+  surfaces: Array<{ positions: Float32Array; triangleCount: number }>,
+  box: THREE.Box3,
+): Float32Array {
+  const profile = new Float32Array(PROFILE_BINS);
+  const spanX = Math.max(1e-6, box.max.x - box.min.x);
+  const spanY = Math.max(1e-6, box.max.y - box.min.y);
+  for (const surface of surfaces) {
+    for (let triangle = 0; triangle < surface.triangleCount; triangle += 1) {
+      const p = triangle * 9;
+      const ax = surface.positions[p];
+      const ay = surface.positions[p + 1];
+      const az = surface.positions[p + 2];
+      const bx = surface.positions[p + 3];
+      const by = surface.positions[p + 4];
+      const bz = surface.positions[p + 5];
+      const cx = surface.positions[p + 6];
+      const cy = surface.positions[p + 7];
+      const cz = surface.positions[p + 8];
+      const nx = (by - ay) * (cz - az) - (bz - az) * (cy - ay);
+      const ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az);
+      const nz = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+      const magnitude = Math.hypot(nx, ny, nz);
+      if (magnitude < 1e-12) continue;
+      if (Math.abs(nz / magnitude) < 0.55) continue;
+      const h = ((ay + by + cy) / 3 - box.min.y) / spanY;
+      if (h < 0.3) continue;
+      const t = ((ax + bx + cx) / 3 - box.min.x) / spanX;
+      const bin = Math.min(PROFILE_BINS - 1, Math.max(0, Math.round(t * (PROFILE_BINS - 1))));
+      const width = Math.max(Math.abs(az), Math.abs(bz), Math.abs(cz));
+      if (width > profile[bin]) profile[bin] = width;
+    }
+  }
+  return profile;
+}
+
+export interface ClassifyContext {
+  /** Local half-width peaks; enables glass detection when present. */
+  profile?: Float32Array;
+}
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
@@ -36,6 +89,7 @@ export function classifyTriangle(
   centroid: THREE.Vector3,
   normal: THREE.Vector3,
   box: THREE.Box3,
+  context: ClassifyContext = {},
 ): { key: string; score: number } {
   const spanX = Math.max(1e-6, box.max.x - box.min.x);
   const spanY = Math.max(1e-6, box.max.y - box.min.y);
@@ -45,6 +99,15 @@ export function classifyTriangle(
   const lateral = Math.abs(normal.z);
   const forward = Math.abs(normal.x);
   const side = centroid.z >= 0 ? 'L' : 'R';
+
+  // Raked glass: a windscreen faces forward and up at the front of the cabin,
+  // a rear screen faces backward and up at the back. Both are tested before
+  // the up-facing rules, which would otherwise call them roof or bonnet.
+  if (context.profile && up > 0.15 && forward > 0.15 && h > 0.63) {
+    const score = clamp01(forward + up - 0.5);
+    if (normal.x > 0 && t > 0.42 && t < 0.85) return { key: 'windscreen', score };
+    if (normal.x < 0 && t > 0.05 && t < 0.48) return { key: 'rear-window', score };
+  }
 
   if (up > 0.6) {
     const score = clamp01((up - 0.55) / 0.4);
@@ -56,8 +119,18 @@ export function classifyTriangle(
     return { key: 'body', score: 0.2 };
   }
   if (lateral > 0.55) {
-    if (h < 0.16 || h > 0.58) return { key: 'body', score: 0.2 };
     const score = clamp01((lateral - 0.5) / 0.45);
+    if (context.profile && h > 0.55 && h < 0.96 && t > 0.14 && t < 0.86) {
+      const bin = Math.min(
+        PROFILE_BINS - 1,
+        Math.max(0, Math.round(t * (PROFILE_BINS - 1))),
+      );
+      const peak = context.profile[bin];
+      if (peak > 0 && Math.abs(centroid.z) < peak * 0.93) {
+        return { key: `window-${side}`, score: clamp01(0.55 + (1 - Math.abs(centroid.z) / peak)) };
+      }
+    }
+    if (h < 0.16 || h > 0.58) return { key: 'body', score: 0.2 };
     if (t > 0.74) return { key: `fender-${side}`, score };
     if (t > 0.52) return { key: `door-front-${side}`, score };
     if (t > 0.3) return { key: `door-rear-${side}`, score };
@@ -135,7 +208,17 @@ interface Accumulator {
 }
 
 function panelOrder(category: PanelCategory): number {
-  return ['hood', 'roof', 'trunk', 'bumper', 'fender', 'door', 'quarter', 'other'].indexOf(category);
+  return [
+    'hood',
+    'roof',
+    'trunk',
+    'bumper',
+    'fender',
+    'door',
+    'quarter',
+    'window',
+    'other',
+  ].indexOf(category);
 }
 
 export interface PanelDetection {
@@ -160,6 +243,7 @@ export function detectPanels(surfaces: Surface[]): PanelDetection {
     );
   }
   const box = surfaceBox(body);
+  const profile = buildWidthProfile(body, box);
   const accumulators = new Map<string, Accumulator>();
   const assignment = new Map<string, Uint8Array>();
   for (const surface of body) {
@@ -190,7 +274,7 @@ export function detectPanels(surfaces: Surface[]): PanelDetection {
       normal.divideScalar(doubleArea);
       const centroid = new THREE.Vector3((ax + bx + cx) / 3, (ay + by + cy) / 3, (az + bz + cz) / 3);
       bodyTriangles += 1;
-      const classified = classifyTriangle(centroid, normal, box);
+      const classified = classifyTriangle(centroid, normal, box, { profile });
       if (classified.key !== 'body') classifiedTriangles += 1;
       let accumulator = accumulators.get(classified.key);
       if (!accumulator) {

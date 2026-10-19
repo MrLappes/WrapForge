@@ -440,6 +440,7 @@ export const VehicleViewport = forwardRef<ViewportHandle, VehicleViewportProps>(
           const box = surfaceBox(body);
           propsRef.current.onSceneReady({
             surfaces: body.map((surface) => ({
+              objectName: surface.objectName,
               positions: surface.positions,
               uvs: surface.uvs as Float32Array,
             })),

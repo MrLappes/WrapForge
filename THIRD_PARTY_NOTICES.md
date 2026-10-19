@@ -177,6 +177,13 @@ Apache-2.0-licensed dependencies.
 The full OFL-1.1 text is included with the `@fontsource-variable` packages and
 at <https://openfontlicense.org>. The fonts are bundled unmodified.
 
+## Runtime libraries
+
+- **ag-psd** (MIT) writes and reads the layered PSD files used for layer
+  exchange.
+- **@modelcontextprotocol/sdk** (MIT) implements the MCP server transport.
+- **tsx** (MIT, development only) runs the MCP server TypeScript directly.
+
 ## Documentation images
 
 `docs/screenshots/imported-car-livery.png` and

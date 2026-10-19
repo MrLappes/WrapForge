@@ -153,6 +153,11 @@ mesh:
 
 ### Livery
 
+`wrapGlass` (boolean, default `false`) controls whether the livery may be applied
+to panels whose category is `window`. When false the composer keeps the model's
+original glass pixels: the panel map is rasterised into a UV-space mask and the
+foil is clipped to everything else.
+
 ```json
 {
   "enabled": true,

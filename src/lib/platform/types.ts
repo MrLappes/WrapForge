@@ -98,6 +98,10 @@ export interface Platform {
   resolveModelUrl(root: string | null, modelPath: string): Promise<string>;
   importArtwork(): Promise<ImportedFile | null>;
   importVehicleModel(): Promise<ImportedFile | null>;
+  /** Generic single-file picker used by layer exchange (PSD, layer PNGs). */
+  importFile(title: string, extensions: string[]): Promise<ImportedFile | null>;
+  /** Multi-file picker, used to sync a folder of layer PNGs. */
+  importFiles(title: string, extensions: string[]): Promise<ImportedFile[]>;
   chooseProjectParent(defaultName: string): Promise<string | null>;
   chooseProjectFolder(): Promise<string | null>;
   saveProject(input: SaveProjectInput): Promise<SaveProjectResult>;

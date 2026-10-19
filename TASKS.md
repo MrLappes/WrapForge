@@ -174,6 +174,12 @@ Last updated: 2026-10-18
 - [x] Transparency: alpha strokes, transparent PNG, transparent render background
 - [x] WebGL failure handling and studio spacing pass
 - [x] Rename, merge, and remove detected panels (undo-safe)
+- [x] Window detection (windscreen, rear screen, side glass) and a UV wrap mask
+- [x] "Wrap over glass" toggle
+- [x] Layered PSD export/import round-trip
+- [x] Layer PNG folder export and sync
+- [x] MCP server for project, panel and livery automation
+- [x] Rebuilt sample hatchback with lofted body, arches, glass, wheels and lights
 - [ ] Split a detected panel into two regions
 - [ ] Draco/KTX2-compressed model import
 - [ ] Camera and shrink-wrap projection

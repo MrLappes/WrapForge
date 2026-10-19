@@ -93,6 +93,41 @@ export function createBrowserPlatform(): Platform {
       return result;
     },
 
+    async importFile(title, extensions) {
+      void title;
+      const accept = extensions.map((extension) => `.${extension}`).join(',');
+      const file = await pickFileInBrowser(accept);
+      if (!file) return null;
+      if (file.size > MAX_IMPORT_BYTES) {
+        throw new Error(
+          `This file is ${(file.size / 1024 / 1024).toFixed(1)} MB; imports are limited to 25 MB in the browser preview.`,
+        );
+      }
+      return {
+        name: file.name,
+        mimeType: file.type || guessMimeType(file.name),
+        dataUrl: await fileToDataUrl(file),
+        byteLength: file.size,
+      };
+    },
+
+    async importFiles(title, extensions) {
+      void title;
+      const accept = extensions.map((extension) => `.${extension}`).join(',');
+      const files = await pickFilesInBrowser(accept);
+      const results: ImportedFile[] = [];
+      for (const file of files) {
+        if (file.size > MAX_IMPORT_BYTES) continue;
+        results.push({
+          name: file.name,
+          mimeType: file.type || guessMimeType(file.name),
+          dataUrl: await fileToDataUrl(file),
+          byteLength: file.size,
+        });
+      }
+      return results;
+    },
+
     async importVehicleModel() {
       const file = await pickFileInBrowser('.glb,.gltf,model/gltf-binary,model/gltf+json');
       if (!file) return null;
@@ -269,6 +304,30 @@ function pickFileInBrowser(
     input.click();
     setTimeout(() => {
       if (!settled && input.files?.length) finish(input.files[0]);
+    }, 60_000);
+  });
+}
+
+function pickFilesInBrowser(accept: string): Promise<File[]> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = accept;
+    input.multiple = true;
+    input.style.display = 'none';
+    let settled = false;
+    const finish = (files: File[]) => {
+      if (settled) return;
+      settled = true;
+      input.remove();
+      resolve(files);
+    };
+    input.addEventListener('change', () => finish(Array.from(input.files ?? [])));
+    input.addEventListener('cancel', () => finish([]));
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(() => {
+      if (!settled && input.files?.length) finish(Array.from(input.files));
     }, 60_000);
   });
 }

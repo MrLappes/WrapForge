@@ -59,7 +59,10 @@ Verified in this repository on Ubuntu 26.04 with Node 22, Rust 1.93, and Blender
 | Browser fallback | Save/load/reopen verified by Playwright |
 | Sample vehicle | Original CC0 glTF with 13 wrap panels and planar outer-face UVs |
 | 3D viewport | three.js viewport, orbit/pan/zoom, panel picking, paint, textures, isolation, graceful no-WebGL message |
-| Vehicle import | Any self-contained glTF: unit/orientation normalisation, geometric panel detection (14 panels on a real 4.3 m scanned car), confidence per panel |
+| Vehicle import | Any self-contained glTF: unit/orientation normalisation, geometric panel detection including windows, confidence per panel, and rename/merge/remove corrections |
+| Glass handling | Windscreen, rear screen and side glass are detected as panels; the livery is masked off them unless "Wrap over glass" is on |
+| Layer exchange | Layered PSD export/import with blend modes and visibility, plus a per-layer PNG folder with a manifest |
+| AI access | Built-in MCP server: create/open projects, edit panels, layers and finishes from an MCP client |
 | Texture livery | Brush/eraser painting straight onto the body texture, layer stack with blend modes, projected decal planes rasterised through the model UVs, three original presets, PNG atlas export |
 | Transparency | Alpha brushwork, per-layer opacity and blend modes, transparent PNG export, transparent render background |
 | Artwork | SVG import (sanitized), raster import, live text, source-preserving placement |
@@ -205,6 +208,7 @@ e2e/                 Playwright browser workflow
 ## Documentation
 
 - [User guide](docs/USER_GUIDE.md)
+- [MCP server](docs/MCP.md)
 - [Developer guide](docs/DEVELOPER_GUIDE.md)
 - [Vehicle assets](docs/VEHICLE_ASSETS.md)
 - [Print workflow](docs/PRINT_WORKFLOW.md)

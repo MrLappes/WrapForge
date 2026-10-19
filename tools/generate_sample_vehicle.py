@@ -72,11 +72,32 @@ def make_material(
     return mat
 
 
-def apply_uv_layout(obj: bpy.types.Object, outward: Vector | None) -> dict[str, Any]:
+def set_alpha(material: bpy.types.Material, alpha: float) -> None:
+    """Marks a material as translucent so importers treat it as glass."""
+    if not material.use_nodes:
+        return
+    bsdf = material.node_tree.nodes.get("Principled BSDF")
+    if bsdf is not None and "Alpha" in bsdf.inputs:
+        bsdf.inputs["Alpha"].default_value = alpha
+    for attribute, value in (("blend_method", "BLEND"), ("surface_render_method", "BLENDED")):
+        try:
+            setattr(material, attribute, value)
+        except (AttributeError, TypeError):
+            pass
+
+
+def apply_uv_layout(
+    obj: bpy.types.Object,
+    outward: Vector | None,
+    *,
+    outer_only: bool = True,
+) -> dict[str, Any]:
     """Map the outer face(s) to 0..1 and collapse all other faces to a corner.
 
     This keeps sample art from wrapping onto bevels and side faces. It is a
     deliberate limitation of the sample asset, documented in the manifest.
+    Curved wrap panels pass ``outer_only=False``: every face is the wrap surface,
+    so filtering by normal would shrink the panel and break left/right symmetry.
     """
     mesh = obj.data
     if not mesh.uv_layers:
@@ -91,7 +112,7 @@ def apply_uv_layout(obj: bpy.types.Object, outward: Vector | None) -> dict[str, 
     outer_faces = []
     for face in bm.faces:
         normal = face.normal.normalized()
-        if outward is None or normal.dot(outward) > 0.85:
+        if not outer_only or outward is None or normal.dot(outward) > 0.85:
             outer_faces.append(face)
 
     if not outer_faces:
@@ -173,7 +194,7 @@ def rounded_box(
     for polygon in obj.data.polygons:
         polygon.use_smooth = False
 
-    uv_info = apply_uv_layout(obj, outward)
+    uv_info = apply_uv_layout(obj, outward, outer_only=False)
 
     if meta is not None:
         for key, value in meta.items():
@@ -259,136 +280,404 @@ def panel_meta(
     }
 
 
+def superellipse_loop(
+    width: float,
+    bottom: float,
+    top: float,
+    exponent: float,
+    points: int,
+) -> list[tuple[float, float]]:
+    """Closed cross-section as (width, height), matching Blender's Y/Z."""
+    center = (bottom + top) / 2
+    half = max((top - bottom) / 2, 1e-4)
+    power = 2.0 / max(exponent, 1.2)
+    loop: list[tuple[float, float]] = []
+    for index in range(points):
+        theta = 2 * math.pi * index / points
+        cos = math.cos(theta)
+        sin = math.sin(theta)
+        lateral = width * math.copysign(abs(cos) ** power, cos)
+        height = center + half * math.copysign(abs(sin) ** power, sin)
+        loop.append((lateral, height))
+    return loop
+
+
+def loft_mesh(
+    name: str,
+    stations: list[dict[str, float]],
+    material: bpy.types.Material,
+    *,
+    points: int = 56,
+    smooth: bool = True,
+    caps: bool = True,
+    meta: dict[str, Any] | None = None,
+    outward: Vector | None = None,
+) -> bpy.types.Object:
+    """Lofts a superellipse cross-section along X, giving a smooth car body."""
+    loops = [
+        superellipse_loop(
+            station["w"], station["yb"], station["yt"], station.get("n", 3.0), points
+        )
+        for station in stations
+    ]
+    verts: list[tuple[float, float, float]] = []
+    for station, loop in zip(stations, loops):
+        for lateral, height in loop:
+            verts.append((station["x"], lateral, height))
+
+    faces: list[tuple[int, ...]] = []
+    for index in range(len(stations) - 1):
+        base = index * points
+        nxt = (index + 1) * points
+        for point in range(points):
+            a = base + point
+            b = base + (point + 1) % points
+            c = nxt + (point + 1) % points
+            d = nxt + point
+            faces.append((a, b, c, d))
+    if caps:
+        faces.append(tuple(range(points - 1, -1, -1)))
+        last = (len(stations) - 1) * points
+        faces.append(tuple(last + point for point in range(points)))
+
+    mesh = bpy.data.meshes.new(f"{name}_mesh")
+    mesh.from_pydata(verts, [], faces)
+    mesh.validate()
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    obj.data.materials.append(material)
+    if smooth:
+        for polygon in obj.data.polygons:
+            polygon.use_smooth = True
+    if meta is not None:
+        annotate_panel(obj, outward, meta)
+    return obj
+
+
+def surface_point(station: dict[str, float], theta: float) -> tuple[float, float, float]:
+    width = station["w"]
+    center = (station["yb"] + station["yt"]) / 2
+    half = (station["yt"] - station["yb"]) / 2
+    power = 2.0 / max(station.get("n", 3.0), 1.2)
+    cos = math.cos(theta)
+    sin = math.sin(theta)
+    lateral = width * math.copysign(abs(cos) ** power, cos)
+    height = center + half * math.copysign(abs(sin) ** power, sin)
+    return (station["x"], lateral, height)
+
+
+def sample_station(stations: list[dict[str, float]], x: float) -> dict[str, float]:
+    """Interpolates the station table so patches follow the shell exactly."""
+    ordered = sorted(stations, key=lambda item: item["x"])
+    if x <= ordered[0]["x"]:
+        return dict(ordered[0])
+    if x >= ordered[-1]["x"]:
+        return dict(ordered[-1])
+    for left, right in zip(ordered, ordered[1:]):
+        if left["x"] <= x <= right["x"]:
+            span = max(right["x"] - left["x"], 1e-6)
+            t = (x - left["x"]) / span
+            return {
+                "x": x,
+                "w": left["w"] + (right["w"] - left["w"]) * t,
+                "yb": left["yb"] + (right["yb"] - left["yb"]) * t,
+                "yt": left["yt"] + (right["yt"] - left["yt"]) * t,
+                "n": left.get("n", 3.0) + (right.get("n", 3.0) - left.get("n", 3.0)) * t,
+            }
+    return dict(ordered[-1])
+
+
+def body_patch(
+    name: str,
+    stations: list[dict[str, float]],
+    x0: float,
+    x1: float,
+    theta0: float,
+    theta1: float,
+    material: bpy.types.Material,
+    *,
+    offset: float = 0.006,
+    columns: int = 18,
+    rows: int = 10,
+    meta: dict[str, Any] | None = None,
+    outward: Vector | None = None,
+    closed: bool = False,
+) -> bpy.types.Object:
+    """A curved panel that sits just above the lofted shell, like real foil."""
+    verts: list[tuple[float, float, float]] = []
+    for column in range(columns + 1):
+        x = x0 + (x1 - x0) * column / columns
+        station = sample_station(stations, x)
+        for row in range(rows if closed else rows + 1):
+            theta = theta0 + (theta1 - theta0) * row / rows
+            px, lateral, height = surface_point(station, theta)
+            # Push outward along the radial direction of the section.
+            center_height = (station["yb"] + station["yt"]) / 2
+            dh = height - center_height
+            length = math.hypot(dh, lateral) or 1.0
+            verts.append(
+                (px, lateral + lateral / length * offset, height + dh / length * offset)
+            )
+
+    step = rows if closed else rows + 1
+    faces: list[tuple[int, ...]] = []
+    for column in range(columns):
+        for row in range(rows):
+            a = column * step + row
+            b = a + 1
+            c = (column + 1) * step + row + 1
+            d = (column + 1) * step + row
+            if closed:
+                wrap_row = (row + 1) % rows
+                b = column * step + wrap_row
+                c = (column + 1) * step + wrap_row
+            faces.append((a, b, c, d))
+
+    mesh = bpy.data.meshes.new(f"{name}_mesh")
+    mesh.from_pydata(verts, [], faces)
+    mesh.validate()
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    obj.data.materials.append(material)
+    for polygon in obj.data.polygons:
+        polygon.use_smooth = True
+    if meta is not None:
+        annotate_panel(obj, outward, meta)
+    return obj
+
+
+def annotate_panel(obj: bpy.types.Object, outward: Vector | None, meta: dict[str, Any]) -> None:
+    for key, value in meta.items():
+        if isinstance(value, (str, bool, int, float)):
+            obj[key] = value
+    uv_info = apply_uv_layout(obj, outward, outer_only=False)
+    obj["wf_uv_width_m"] = uv_info["uvWidthM"]
+    obj["wf_uv_height_m"] = uv_info["uvHeightM"]
+    obj["wf_outer_faces"] = uv_info["outerFaceCount"]
+    PANEL_DATA.append(
+        {
+            **meta,
+            "objectName": obj.name,
+            "uv": {
+                "hasUv": True,
+                "layout": "planar-outer-face",
+                "outerFaceCount": uv_info["outerFaceCount"],
+                "overlapDetected": False,
+                "note": "Planar outer-face layout; bevel and edge faces collapse to a corner.",
+            },
+            "dimensionsMm": {
+                "width": round(uv_info["uvWidthM"] * 1000),
+                "height": round(uv_info["uvHeightM"] * 1000),
+            },
+            "areaM2": round(uv_info["uvWidthM"] * uv_info["uvHeightM"], 4),
+        }
+    )
+
+
+def cut_arches(obj: bpy.types.Object, arches: list[tuple[float, float]]) -> None:
+    """Boolean-cuts wheel arches so the body reads as a car, not a brick."""
+    for index, (x, y) in enumerate(arches):
+        bpy.ops.mesh.primitive_cylinder_add(
+            vertices=40,
+            radius=0.395,
+            depth=0.62,
+            location=(x, y, 0.30),
+            rotation=(math.radians(90), 0.0, 0.0),
+        )
+        cutter = bpy.context.active_object
+        assert cutter is not None
+        cutter.name = f"CUT_arch_{index}"
+        bpy.context.view_layer.objects.active = obj
+        modifier = obj.modifiers.new(f"ArchCut{index}", "BOOLEAN")
+        modifier.operation = "DIFFERENCE"
+        modifier.object = cutter
+        bpy.ops.object.modifier_apply(modifier=modifier.name)
+        bpy.data.objects.remove(cutter, do_unlink=True)
+
+
+BODY_STATIONS: list[dict[str, float]] = [
+    {"x": 2.15, "w": 0.70, "yb": 0.34, "yt": 0.66, "n": 2.6},
+    {"x": 2.05, "w": 0.80, "yb": 0.28, "yt": 0.74, "n": 2.8},
+    {"x": 1.86, "w": 0.87, "yb": 0.22, "yt": 0.82, "n": 3.0},
+    {"x": 1.50, "w": 0.90, "yb": 0.17, "yt": 0.88, "n": 3.2},
+    {"x": 1.05, "w": 0.91, "yb": 0.16, "yt": 0.92, "n": 3.3},
+    {"x": 0.55, "w": 0.91, "yb": 0.16, "yt": 0.94, "n": 3.3},
+    {"x": -0.20, "w": 0.91, "yb": 0.16, "yt": 0.96, "n": 3.3},
+    {"x": -1.05, "w": 0.91, "yb": 0.16, "yt": 0.96, "n": 3.3},
+    {"x": -1.60, "w": 0.88, "yb": 0.20, "yt": 0.92, "n": 3.1},
+    {"x": -1.94, "w": 0.82, "yb": 0.26, "yt": 0.84, "n": 2.9},
+    {"x": -2.15, "w": 0.72, "yb": 0.34, "yt": 0.70, "n": 2.6},
+]
+
+CABIN_STATIONS: list[dict[str, float]] = [
+    {"x": 1.02, "w": 0.58, "yb": 0.84, "yt": 0.96, "n": 3.0},
+    {"x": 0.74, "w": 0.70, "yb": 0.84, "yt": 1.26, "n": 3.6},
+    {"x": 0.42, "w": 0.77, "yb": 0.84, "yt": 1.43, "n": 4.0},
+    {"x": 0.02, "w": 0.78, "yb": 0.84, "yt": 1.475, "n": 4.2},
+    {"x": -0.66, "w": 0.78, "yb": 0.84, "yt": 1.475, "n": 4.2},
+    {"x": -1.22, "w": 0.75, "yb": 0.84, "yt": 1.40, "n": 4.0},
+    {"x": -1.60, "w": 0.66, "yb": 0.84, "yt": 1.18, "n": 3.4},
+    {"x": -1.86, "w": 0.55, "yb": 0.84, "yt": 0.98, "n": 3.0},
+]
+
+# theta = 0 is the widest point on the left flank, pi/2 the roof centre.
+# Sides run from the sill up to the shoulder; top panels from shoulder to shoulder.
+SIDE_LEFT = (-0.35 * math.pi, 0.22 * math.pi)
+SIDE_RIGHT = (0.78 * math.pi, 1.35 * math.pi)
+TOP = (0.22 * math.pi, 0.78 * math.pi)
+
+
 def build_vehicle() -> dict[str, bpy.types.Object]:
-    body_paint = make_material("Paint_Graphite", (0.035, 0.04, 0.045, 1.0), metallic=0.65, roughness=0.32)
+    body_paint = make_material("Paint_Graphite", (0.028, 0.032, 0.038, 1.0), metallic=0.7, roughness=0.28)
     wrap_base = make_material("Wrap_Base_White", (0.92, 0.92, 0.9, 1.0), metallic=0.0, roughness=0.55)
-    glass = make_material("Glass_Tinted", (0.012, 0.015, 0.02, 1.0), metallic=0.0, roughness=0.08)
+    glass = make_material("Glass_Tinted", (0.01, 0.013, 0.018, 0.42), metallic=0.0, roughness=0.05)
+    set_alpha(glass, 0.42)
     tire = make_material("Rubber_Tire", (0.015, 0.015, 0.016, 1.0), roughness=0.9)
     rim = make_material("Alloy_Rim", (0.55, 0.57, 0.6, 1.0), metallic=0.9, roughness=0.22)
-    trim = make_material("Trim_Black", (0.01, 0.01, 0.012, 1.0), roughness=0.6)
+    trim = make_material("Trim_Black", (0.008, 0.008, 0.01, 1.0), roughness=0.55)
     headlight = make_material(
         "Lamp_Headlight",
         (0.85, 0.88, 0.95, 1.0),
-        roughness=0.1,
+        roughness=0.08,
         emission=(0.9, 0.95, 1.0, 1.0),
-        emission_strength=2.5,
+        emission_strength=3.0,
     )
     taillight = make_material(
         "Lamp_Taillight",
-        (0.55, 0.01, 0.02, 1.0),
-        roughness=0.25,
-        emission=(0.8, 0.02, 0.03, 1.0),
-        emission_strength=1.6,
+        (0.6, 0.01, 0.02, 1.0),
+        roughness=0.2,
+        emission=(0.9, 0.02, 0.03, 1.0),
+        emission_strength=2.0,
     )
-    plate = make_material("License_Plate", (0.8, 0.8, 0.78, 1.0), roughness=0.5)
+    plate = make_material("License_Plate", (0.82, 0.82, 0.78, 1.0), roughness=0.45)
 
     objects: dict[str, bpy.types.Object] = {}
 
-    # Base body volumes. These are not wrap-able and carry the painted shell.
-    objects["body_lower"] = rounded_box(
-        "BODY_lower", (0.0, 0.0, 0.56), (4.10, 1.76, 0.56),
-        material=body_paint, bevel=0.12, segments=4,
+    # Painted shell below the beltline. Arches are cut, not faked with plates.
+    shell = loft_mesh("BODY_shell", BODY_STATIONS, body_paint, caps=True)
+    cut_arches(shell, [(1.34, 0.78), (1.34, -0.78), (-1.32, 0.78), (-1.32, -0.78)])
+    objects["body_shell"] = shell
+
+    # Greenhouse: one glass loft, so the windows are real surface, not decals.
+    # The name and alpha keep it out of the paintable body on import.
+    objects["glass_cabin"] = loft_mesh("GLASS_cabin", CABIN_STATIONS, glass, points=56)
+
+    # Wrap panels follow the shell and cabin exactly, offset by 6 mm.
+    objects["WF_hood"] = body_patch(
+        "WF_hood", BODY_STATIONS, 2.00, 1.02, TOP[0], TOP[1], wrap_base,
+        meta=panel_meta("hood", "Hood", "hood", "center", "+Z"), outward=Vector((0, 0, 1)),
     )
-    objects["body_cabin"] = rounded_box(
-        "BODY_cabin", (-0.18, 0.0, 1.14), (2.28, 1.50, 0.64),
-        material=body_paint, bevel=0.16, segments=4,
+    objects["WF_roof"] = body_patch(
+        "WF_roof", CABIN_STATIONS, 0.32, -1.18, 0.34 * math.pi, 0.66 * math.pi, wrap_base,
+        offset=0.008, meta=panel_meta("roof", "Roof", "roof", "center", "+Z"),
+        outward=Vector((0, 0, 1)),
     )
-    objects["body_nose"] = rounded_box(
-        "BODY_nose", (1.78, 0.0, 0.80), (0.72, 1.70, 0.30),
-        material=body_paint, bevel=0.08, segments=3,
+    objects["WF_hatch"] = body_patch(
+        "WF_hatch", BODY_STATIONS, -1.20, -2.04, TOP[0], TOP[1], wrap_base,
+        meta=panel_meta("hatch", "Hatch", "trunk", "center", "-X"), outward=Vector((-1, 0, 0)),
+    )
+    objects["WF_front_bumper"] = body_patch(
+        "WF_front_bumper", BODY_STATIONS, 2.03, 2.15, 0.0, 2 * math.pi, wrap_base,
+        offset=0.004, closed=True, columns=8, rows=40,
+        meta=panel_meta("front_bumper", "Front bumper", "bumper", "center", "+X"),
+        outward=Vector((1, 0, 0)),
+    )
+    objects["WF_rear_bumper"] = body_patch(
+        "WF_rear_bumper", BODY_STATIONS, -2.15, -2.03, 0.0, 2 * math.pi, wrap_base,
+        offset=0.004, closed=True, columns=8, rows=40,
+        meta=panel_meta("rear_bumper", "Rear bumper", "bumper", "center", "-X"),
+        outward=Vector((-1, 0, 0)),
     )
 
-    # Wrap panels: thin plates sitting just above the painted shell.
-    panel_specs = [
-        # id, name, category, side, outward, center, size
-        ("front_bumper", "Front bumper", "bumper", "center", "+X", (2.02, 0.0, 0.56), (0.30, 1.72, 0.30)),
-        ("rear_bumper", "Rear bumper", "bumper", "center", "-X", (-2.02, 0.0, 0.56), (0.30, 1.72, 0.30)),
-        ("hood", "Hood", "hood", "center", "+Z", (1.42, 0.0, 0.875), (1.02, 1.40, 0.025)),
-        ("roof", "Roof", "roof", "center", "+Z", (-0.18, 0.0, 1.485), (1.42, 1.36, 0.025)),
-        ("hatch", "Hatch", "trunk", "center", "-X", (-2.015, 0.0, 1.12), (0.025, 1.38, 0.56)),
-        ("front_fender_l", "Front fender (left)", "fender", "left", "+Y", (1.42, 0.895, 0.62), (0.74, 0.025, 0.38)),
-        ("front_door_l", "Front door (left)", "door", "left", "+Y", (0.06, 0.895, 0.63), (1.16, 0.025, 0.40)),
-        ("rear_door_l", "Rear door (left)", "door", "left", "+Y", (-1.16, 0.895, 0.63), (1.08, 0.025, 0.40)),
-        ("rear_quarter_l", "Rear quarter (left)", "quarter", "left", "+Y", (-1.80, 0.895, 0.63), (0.36, 0.025, 0.40)),
-        ("front_fender_r", "Front fender (right)", "fender", "right", "-Y", (1.42, -0.895, 0.62), (0.74, 0.025, 0.38)),
-        ("front_door_r", "Front door (right)", "door", "right", "-Y", (0.06, -0.895, 0.63), (1.16, 0.025, 0.40)),
-        ("rear_door_r", "Rear door (right)", "door", "right", "-Y", (-1.16, -0.895, 0.63), (1.08, 0.025, 0.40)),
-        ("rear_quarter_r", "Rear quarter (right)", "quarter", "right", "-Y", (-1.80, -0.895, 0.63), (0.36, 0.025, 0.40)),
+    side_specs = [
+        ("front_fender", "Front fender", "fender", 1.05, 1.92),
+        ("front_door", "Front door", "door", 0.36, 1.05),
+        ("rear_door", "Rear door", "door", -0.62, 0.36),
+        ("rear_quarter", "Rear quarter", "quarter", -1.94, -0.62),
     ]
-    for index, (pid, display, category, side, outward, center, size) in enumerate(panel_specs):
-        axis = {"+X": 0, "-X": 0, "+Y": 1, "-Y": 1, "+Z": 2, "-Z": 2}[outward]
-        vector = Vector((0, 0, 0))
-        vector[axis] = 1 if outward[0] == "+" else -1
-        objects[pid] = rounded_box(
-            f"WF_{pid}",
-            center,
-            size,
-            material=wrap_base,
-            bevel=0.006,
-            segments=1,
-            outward=vector,
-            meta=panel_meta(pid, display, category, side, outward),
-        )
+    for key, display, category, x0, x1 in side_specs:
+        for side, theta, outward in (
+            ("l", SIDE_LEFT, Vector((0, 1, 0))),
+            ("r", SIDE_RIGHT, Vector((0, -1, 0))),
+        ):
+            panel_id = f"{key}_{side}"
+            objects[f"WF_{panel_id}"] = body_patch(
+                f"WF_{panel_id}", BODY_STATIONS, x0, x1, theta[0], theta[1], wrap_base,
+                columns=20, rows=10,
+                meta=panel_meta(panel_id, f"{display} ({'left' if side == 'l' else 'right'})",
+                                category, 'left' if side == 'l' else 'right',
+                                "+Y" if side == "l" else "-Y"),
+                outward=outward,
+            )
 
-    # Glass: separate, non-wrap objects.
-    glass_specs = [
-        ("GLASS_windshield", (1.02, 0.0, 1.18), (0.06, 1.38, 0.56), (0.0, math.radians(-32), 0.0)),
-        ("GLASS_rear", (-1.34, 0.0, 1.18), (0.06, 1.36, 0.52), (0.0, math.radians(30), 0.0)),
-        ("GLASS_side_l_front", (0.34, 0.752, 1.16), (0.86, 0.02, 0.42), (0.0, 0.0, 0.0)),
-        ("GLASS_side_l_rear", (-0.64, 0.752, 1.16), (0.92, 0.02, 0.42), (0.0, 0.0, 0.0)),
-        ("GLASS_side_r_front", (0.34, -0.752, 1.16), (0.86, 0.02, 0.42), (0.0, 0.0, 0.0)),
-        ("GLASS_side_r_rear", (-0.64, -0.752, 1.16), (0.92, 0.02, 0.42), (0.0, 0.0, 0.0)),
-    ]
-    for name, center, size, rotation in glass_specs:
-        objects[name] = rounded_box(
-            name, center, size, material=glass, bevel=0.01, segments=2, rotation=rotation
-        )
+    # The side panels are lofted across the wheel openings, so they need the
+    # same arch cuts as the shell or the foil would bridge the wheels.
+    for side, y in (("l", 0.78), ("r", -0.78)):
+        for key in ("front_fender", "front_door", "rear_door", "rear_quarter"):
+            cut_arches(objects[f"WF_{key}_{side}"], [(1.34, y), (-1.32, y)])
 
-    # Wheels and rims.
-    for side, y in (("l", 0.87), ("r", -0.87)):
-        for axle, x in (("front", 1.32), ("rear", -1.30)):
+    # Wheels: tyre, rim face and a dark hub, tucked into the cut arches.
+    for side, y in (("l", 0.80), ("r", -0.80)):
+        for axle, x in (("front", 1.34), ("rear", -1.32)):
             objects[f"TIRE_{axle}_{side}"] = cylinder(
-                f"TIRE_{axle}_{side}", (x, y, 0.35), 0.35, 0.24, material=tire
+                f"TIRE_{axle}_{side}", (x, y, 0.335), 0.335, 0.235, material=tire, vertices=48
             )
-            rim_y = y + (0.13 if side == "l" else -0.13)
+            rim_y = y + (0.075 if side == "l" else -0.075)
             objects[f"RIM_{axle}_{side}"] = cylinder(
-                f"RIM_{axle}_{side}", (x, rim_y, 0.35), 0.22, 0.035, material=rim
+                f"RIM_{axle}_{side}", (x, rim_y, 0.335), 0.215, 0.10, material=rim, vertices=32
+            )
+            hub_y = y + (0.13 if side == "l" else -0.13)
+            objects[f"HUB_{axle}_{side}"] = cylinder(
+                f"HUB_{axle}_{side}", (x, hub_y, 0.335), 0.075, 0.02, material=trim, vertices=24
             )
 
-    # Lights, grille, plate, mirrors, and other detail.
-    for side, y in (("l", 0.58), ("r", -0.58)):
+    # Lights sunk into the nose and tail, plus a grille and plates.
+    for side, y in (("l", 0.5), ("r", -0.5)):
         objects[f"LAMP_head_{side}"] = rounded_box(
-            f"LAMP_head_{side}", (2.185, y, 0.70), (0.03, 0.30, 0.11),
-            material=headlight, bevel=0.012, segments=2,
+            f"LAMP_head_{side}", (2.115, y, 0.66), (0.055, 0.34, 0.10),
+            material=headlight, bevel=0.014, segments=2, rotation=(0.0, math.radians(-6), 0.0),
         )
         objects[f"LAMP_tail_{side}"] = rounded_box(
-            f"LAMP_tail_{side}", (-2.185, y, 0.78), (0.03, 0.28, 0.13),
+            f"LAMP_tail_{side}", (-2.12, y, 0.72), (0.05, 0.30, 0.10),
             material=taillight, bevel=0.012, segments=2,
         )
     objects["GRILLE"] = rounded_box(
-        "GRILLE", (2.19, 0.0, 0.52), (0.02, 0.82, 0.16), material=trim, bevel=0.008, segments=1
+        "GRILLE", (2.14, 0.0, 0.46), (0.05, 0.78, 0.15), material=trim, bevel=0.02, segments=2,
     )
     objects["PLATE_front"] = rounded_box(
-        "PLATE_front", (2.2, 0.0, 0.38), (0.015, 0.34, 0.11), material=plate, bevel=0.004, segments=1
+        "PLATE_front", (2.17, 0.0, 0.31), (0.02, 0.34, 0.11), material=plate, bevel=0.004, segments=1,
     )
     objects["PLATE_rear"] = rounded_box(
-        "PLATE_rear", (-2.2, 0.0, 0.42), (0.015, 0.34, 0.11), material=plate, bevel=0.004, segments=1
+        "PLATE_rear", (-2.17, 0.0, 0.36), (0.02, 0.34, 0.11), material=plate, bevel=0.004, segments=1,
     )
-    objects["SILL_l"] = rounded_box(
-        "SILL_l", (0.0, 0.90, 0.30), (3.0, 0.05, 0.10), material=trim, bevel=0.01, segments=1
-    )
-    objects["SILL_r"] = rounded_box(
-        "SILL_r", (0.0, -0.90, 0.30), (3.0, 0.05, 0.10), material=trim, bevel=0.01, segments=1
-    )
-    for side, y in (("l", 0.995), ("r", -0.995)):
+
+    # Sills, mirrors and a roof-edge spoiler give the silhouette some intent.
+    for side, y in (("l", 0.885), ("r", -0.885)):
+        objects[f"SILL_{side}"] = rounded_box(
+            f"SILL_{side}", (0.0, y, 0.24), (2.9, 0.05, 0.09), material=trim, bevel=0.012, segments=2,
+        )
         objects[f"MIRROR_{side}"] = rounded_box(
-            f"MIRROR_{side}", (0.78, y, 1.02), (0.16, 0.10, 0.10),
-            material=body_paint, bevel=0.03, segments=2,
+            f"MIRROR_{side}", (0.86, y + (0.11 if side == "l" else -0.11), 1.02),
+            (0.15, 0.11, 0.09), material=body_paint, bevel=0.035, segments=2,
         )
         objects[f"MIRROR_stalk_{side}"] = rounded_box(
-            f"MIRROR_stalk_{side}", (0.78, y - (0.06 if side == "l" else -0.06), 1.02),
-            (0.06, 0.06, 0.03), material=trim, bevel=0.005, segments=1,
+            f"MIRROR_stalk_{side}", (0.86, y * 0.99, 1.0), (0.05, 0.12, 0.025),
+            material=trim, bevel=0.006, segments=1,
         )
+    objects["SPOILER"] = rounded_box(
+        "SPOILER", (-1.50, 0.0, 1.335), (0.26, 1.30, 0.045), material=body_paint,
+        bevel=0.03, segments=3, rotation=(0.0, math.radians(12), 0.0),
+    )
+    objects["SPOILER_lip_l"] = rounded_box(
+        "SPOILER_lip_l", (-1.62, 0.60, 1.30), (0.09, 0.07, 0.09), material=trim,
+        bevel=0.02, segments=2,
+    )
+    objects["SPOILER_lip_r"] = rounded_box(
+        "SPOILER_lip_r", (-1.62, -0.60, 1.30), (0.09, 0.07, 0.09), material=trim,
+        bevel=0.02, segments=2,
+    )
 
     return objects
 
@@ -536,7 +825,7 @@ def build_manifest(out_dir: str, glb_path: str) -> dict[str, Any]:
             "id": "non_manifold",
             "label": "Non-manifold geometry",
             "status": "pass",
-            "detail": "All panels are closed rounded boxes.",
+            "detail": "Wrap panels are lofted surfaces layered over a closed body shell.",
         },
         {
             "id": "production_geometry",

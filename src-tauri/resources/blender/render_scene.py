@@ -304,19 +304,19 @@ def build_stage(config: dict[str, Any]) -> tuple[bpy.types.Object, str | None, l
     add_area(
         "STAGE_key",
         center + Vector((radius * 2.0, -radius * 2.2, radius * 2.4)),
-        420.0 * light_scale,
+        660.0 * light_scale,
         radius * 2.6,
     )
     add_area(
         "STAGE_fill",
         center + Vector((-radius * 2.2, radius * 1.8, radius * 1.6)),
-        130.0 * light_scale,
+        210.0 * light_scale,
         radius * 3.2,
     )
     add_area(
         "STAGE_rim",
         center + Vector((-radius * 1.2, -radius * 2.4, radius * 1.0)),
-        240.0 * light_scale,
+        380.0 * light_scale,
         radius * 2.2,
     )
 

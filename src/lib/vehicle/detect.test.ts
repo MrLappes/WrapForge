@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import {
+  buildWidthProfile,
   classifyTriangle,
   decodePanelBytes,
   detectPanels,
@@ -30,6 +31,47 @@ describe('vehicle analysis', () => {
       'quarter-R',
     );
     expect(classifyTriangle(new THREE.Vector3(1.9, 0.6, -0.9), right, BOX).key).toBe('fender-R');
+  });
+
+  it('detects raked windscreens and rear screens as glass', () => {
+    const profile = new Float32Array(48).fill(0.9);
+    const windscreen = new THREE.Vector3(0.62, 0.62, 0);
+    const rearScreen = new THREE.Vector3(-0.62, 0.62, 0);
+    // t ~0.72 forwards, high on the body: a windscreen, not roof or bonnet.
+    expect(
+      classifyTriangle(new THREE.Vector3(1.0, 1.25, 0), windscreen, BOX, { profile }).key,
+    ).toBe('windscreen');
+    expect(
+      classifyTriangle(new THREE.Vector3(-1.3, 1.25, 0), rearScreen, BOX, { profile }).key,
+    ).toBe('rear-window');
+  });
+
+  it('detects side glass only when it sits inboard of the body sides', () => {
+    const profile = new Float32Array(48).fill(0.9);
+    const left = new THREE.Vector3(0, 0, 1);
+    // Same door at full width is paint, the inset one above the beltline is glass.
+    expect(
+      classifyTriangle(new THREE.Vector3(0.9, 1.05, 0.9), left, BOX, { profile }).key,
+    ).toBe('body');
+    expect(
+      classifyTriangle(new THREE.Vector3(0.9, 1.05, 0.78), left, BOX, { profile }).key,
+    ).toBe('window-L');
+    // Without a profile (bundled assets, tests) nothing is reclassified.
+    expect(classifyTriangle(new THREE.Vector3(0.9, 1.05, 0.78), left, BOX).key).toBe('body');
+  });
+
+  it('builds a width profile that peaks at the body sides', () => {
+    const positions = new Float32Array([
+      -2, 0, 0.9, -2, 1, 0.9, -1.9, 1, 0.9,
+      0, 0.6, 0.9, 0, 1, 0.9, 0.1, 1, 0.9,
+    ]);
+    const surface = { positions, triangleCount: 2 };
+    const profile = buildWidthProfile([surface], BOX);
+    expect(Math.max(...profile)).toBeCloseTo(0.9, 5);
+    // Bins for t ~0.05 and t ~0.51, the stations the triangles sit at.
+    expect(profile[2]).toBeCloseTo(0.9, 5);
+    expect(profile[24]).toBeCloseTo(0.9, 5);
+    expect(profile[40]).toBe(0);
   });
 
   it('classifies end caps as bumpers', () => {

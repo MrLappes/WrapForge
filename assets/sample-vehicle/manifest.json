@@ -35,14 +35,14 @@
       "outwardAxis": "+X",
       "objectName": "WF_front_bumper",
       "dimensionsMm": {
-        "width": 1708,
-        "height": 288
+        "width": 1623,
+        "height": 483
       },
-      "areaM2": 0.4919,
+      "areaM2": 0.7833,
       "uv": {
         "hasUv": true,
         "layout": "planar-outer-face",
-        "outerFaceCount": 1,
+        "outerFaceCount": 320,
         "overlapDetected": false,
         "note": "Planar outer-face layout; bevel and edge faces collapse to a corner."
       }
@@ -56,14 +56,14 @@
       "outwardAxis": "+Y",
       "objectName": "WF_front_door_l",
       "dimensionsMm": {
-        "width": 1148,
-        "height": 388
+        "width": 690,
+        "height": 671
       },
-      "areaM2": 0.4454,
+      "areaM2": 0.463,
       "uv": {
         "hasUv": true,
         "layout": "planar-outer-face",
-        "outerFaceCount": 1,
+        "outerFaceCount": 200,
         "overlapDetected": false,
         "note": "Planar outer-face layout; bevel and edge faces collapse to a corner."
       }
@@ -77,14 +77,14 @@
       "outwardAxis": "-Y",
       "objectName": "WF_front_door_r",
       "dimensionsMm": {
-        "width": 1148,
-        "height": 388
+        "width": 690,
+        "height": 671
       },
-      "areaM2": 0.4454,
+      "areaM2": 0.463,
       "uv": {
         "hasUv": true,
         "layout": "planar-outer-face",
-        "outerFaceCount": 1,
+        "outerFaceCount": 200,
         "overlapDetected": false,
         "note": "Planar outer-face layout; bevel and edge faces collapse to a corner."
       }
@@ -98,14 +98,14 @@
       "outwardAxis": "+Y",
       "objectName": "WF_front_fender_l",
       "dimensionsMm": {
-        "width": 728,
-        "height": 368
+        "width": 870,
+        "height": 649
       },
-      "areaM2": 0.2679,
+      "areaM2": 0.5645,
       "uv": {
         "hasUv": true,
         "layout": "planar-outer-face",
-        "outerFaceCount": 1,
+        "outerFaceCount": 200,
         "overlapDetected": false,
         "note": "Planar outer-face layout; bevel and edge faces collapse to a corner."
       }
@@ -119,14 +119,14 @@
       "outwardAxis": "-Y",
       "objectName": "WF_front_fender_r",
       "dimensionsMm": {
-        "width": 728,
-        "height": 368
+        "width": 870,
+        "height": 649
       },
-      "areaM2": 0.2679,
+      "areaM2": 0.5645,
       "uv": {
         "hasUv": true,
         "layout": "planar-outer-face",
-        "outerFaceCount": 1,
+        "outerFaceCount": 200,
         "overlapDetected": false,
         "note": "Planar outer-face layout; bevel and edge faces collapse to a corner."
       }
@@ -140,14 +140,14 @@
       "outwardAxis": "-X",
       "objectName": "WF_hatch",
       "dimensionsMm": {
-        "width": 1368,
-        "height": 548
+        "width": 1547,
+        "height": 246
       },
-      "areaM2": 0.7497,
+      "areaM2": 0.3812,
       "uv": {
         "hasUv": true,
         "layout": "planar-outer-face",
-        "outerFaceCount": 1,
+        "outerFaceCount": 180,
         "overlapDetected": false,
         "note": "Planar outer-face layout; bevel and edge faces collapse to a corner."
       }
@@ -161,14 +161,14 @@
       "outwardAxis": "+Z",
       "objectName": "WF_hood",
       "dimensionsMm": {
-        "width": 1008,
-        "height": 1388
+        "width": 980,
+        "height": 1565
       },
-      "areaM2": 1.3991,
+      "areaM2": 1.534,
       "uv": {
         "hasUv": true,
         "layout": "planar-outer-face",
-        "outerFaceCount": 1,
+        "outerFaceCount": 180,
         "overlapDetected": false,
         "note": "Planar outer-face layout; bevel and edge faces collapse to a corner."
       }
@@ -182,14 +182,14 @@
       "outwardAxis": "-X",
       "objectName": "WF_rear_bumper",
       "dimensionsMm": {
-        "width": 1708,
-        "height": 288
+        "width": 1562,
+        "height": 494
       },
-      "areaM2": 0.4919,
+      "areaM2": 0.7713,
       "uv": {
         "hasUv": true,
         "layout": "planar-outer-face",
-        "outerFaceCount": 1,
+        "outerFaceCount": 320,
         "overlapDetected": false,
         "note": "Planar outer-face layout; bevel and edge faces collapse to a corner."
       }
@@ -203,14 +203,14 @@
       "outwardAxis": "+Y",
       "objectName": "WF_rear_door_l",
       "dimensionsMm": {
-        "width": 1068,
-        "height": 388
+        "width": 980,
+        "height": 683
       },
-      "areaM2": 0.4144,
+      "areaM2": 0.6697,
       "uv": {
         "hasUv": true,
         "layout": "planar-outer-face",
-        "outerFaceCount": 1,
+        "outerFaceCount": 200,
         "overlapDetected": false,
         "note": "Planar outer-face layout; bevel and edge faces collapse to a corner."
       }
@@ -224,14 +224,14 @@
       "outwardAxis": "-Y",
       "objectName": "WF_rear_door_r",
       "dimensionsMm": {
-        "width": 1068,
-        "height": 388
+        "width": 980,
+        "height": 683
       },
-      "areaM2": 0.4144,
+      "areaM2": 0.6697,
       "uv": {
         "hasUv": true,
         "layout": "planar-outer-face",
-        "outerFaceCount": 1,
+        "outerFaceCount": 200,
         "overlapDetected": false,
         "note": "Planar outer-face layout; bevel and edge faces collapse to a corner."
       }
@@ -245,14 +245,14 @@
       "outwardAxis": "+Y",
       "objectName": "WF_rear_quarter_l",
       "dimensionsMm": {
-        "width": 348,
-        "height": 388
+        "width": 1320,
+        "height": 683
       },
-      "areaM2": 0.135,
+      "areaM2": 0.9014,
       "uv": {
         "hasUv": true,
         "layout": "planar-outer-face",
-        "outerFaceCount": 1,
+        "outerFaceCount": 200,
         "overlapDetected": false,
         "note": "Planar outer-face layout; bevel and edge faces collapse to a corner."
       }
@@ -266,14 +266,14 @@
       "outwardAxis": "-Y",
       "objectName": "WF_rear_quarter_r",
       "dimensionsMm": {
-        "width": 348,
-        "height": 388
+        "width": 1320,
+        "height": 683
       },
-      "areaM2": 0.135,
+      "areaM2": 0.9014,
       "uv": {
         "hasUv": true,
         "layout": "planar-outer-face",
-        "outerFaceCount": 1,
+        "outerFaceCount": 200,
         "overlapDetected": false,
         "note": "Planar outer-face layout; bevel and edge faces collapse to a corner."
       }
@@ -287,14 +287,14 @@
       "outwardAxis": "+Z",
       "objectName": "WF_roof",
       "dimensionsMm": {
-        "width": 1408,
-        "height": 1348
+        "width": 1500,
+        "height": 1116
       },
-      "areaM2": 1.898,
+      "areaM2": 1.6737,
       "uv": {
         "hasUv": true,
         "layout": "planar-outer-face",
-        "outerFaceCount": 1,
+        "outerFaceCount": 180,
         "overlapDetected": false,
         "note": "Planar outer-face layout; bevel and edge faces collapse to a corner."
       }
@@ -327,7 +327,7 @@
         "id": "non_manifold",
         "label": "Non-manifold geometry",
         "status": "pass",
-        "detail": "All panels are closed rounded boxes."
+        "detail": "Wrap panels are lofted surfaces layered over a closed body shell."
       },
       {
         "id": "production_geometry",
@@ -342,6 +342,6 @@
       "Panel dimensions are measured from the generated plate geometry and may not match a real car."
     ]
   },
-  "generatedAt": "2026-10-18",
+  "generatedAt": "2026-10-19",
   "generator": "tools/generate_sample_vehicle.py"
 }

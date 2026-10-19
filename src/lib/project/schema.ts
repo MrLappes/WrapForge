@@ -21,8 +21,17 @@ export const PanelCategory = z.enum([
   'quarter',
   'bumper',
   'trunk',
+  'window',
   'other',
 ]);
+
+/**
+ * Glass is excluded from wrapping by default: a foil belongs on paintwork, and
+ * the texture of a single-material model still holds the windows.
+ */
+export function isGlassCategory(category: string): boolean {
+  return category === 'window';
+}
 
 export const PanelSide = z.enum(['left', 'right', 'center']);
 
@@ -224,6 +233,12 @@ export const Livery = z.object({
   baseTexturePath: z.string().nullable().default(null),
   baseTextureSize: z.number().int().min(64).max(8192).default(1024),
   finish: LiveryFinish,
+  /**
+   * Imported models often bake their windows into the same texture as the
+   * paint. When false (the default) the livery is masked off glass panels, so
+   * the original glass shows through.
+   */
+  wrapGlass: z.boolean().default(false),
   layers: z.array(LiveryLayer).default([]),
   strokes: z.array(LiveryStroke).default([]),
 });

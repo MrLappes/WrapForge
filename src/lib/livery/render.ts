@@ -1,6 +1,8 @@
 import type { Livery, LiveryLayer, LiveryMapping, LiveryStroke } from '../project/schema';
 
 export interface BakeSurface {
+  /** Matches `PanelMapMesh.objectName`, so panel classification can be applied. */
+  objectName?: string;
   /** 9 floats per triangle (a, b, c), world space, metres. */
   positions: Float32Array;
   /** 6 floats per triangle (u, v), 1:1 with positions. */
