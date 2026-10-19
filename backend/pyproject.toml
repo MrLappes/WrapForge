@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wrapforge-backend"
+version = "0.1.0a0"
+description = "WrapForge validation, print planning, and Blender adapter"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+dependencies = ["pydantic>=2.7,<3"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.2,<9", "pytest-cov>=5,<6"]
+
+[project.scripts]
+wrapforge-backend = "wrapforge_backend.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["wrapforge_backend*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+  "blender: integration test that requires a working Blender installation",
+]

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 400" width="1000" height="400">
+  <title>WrapForge Mark — original sample artwork</title>
+  <rect x="0" y="0" width="1000" height="400" fill="none"/>
+  <g>
+    <path d="M40 96 C 150 40 250 152 360 96 C 470 40 570 152 680 96 C 790 40 890 152 960 112 L 960 168 C 850 220 750 112 640 168 C 530 224 430 112 320 168 C 210 224 110 112 40 152 Z" fill="#ff7a45"/>
+    <path d="M40 214 C 150 158 250 270 360 214 C 470 158 570 270 680 214 C 790 158 890 270 960 230 L 960 286 C 850 338 750 230 640 286 C 530 342 430 230 320 286 C 210 342 110 230 40 270 Z" fill="#f4efe6"/>
+  </g>
+  <text x="40" y="372" font-family="Space Grotesk, Inter, sans-serif" font-weight="700" font-size="64" letter-spacing="6" fill="#1b2026">WRAPFORGE</text>
+</svg>

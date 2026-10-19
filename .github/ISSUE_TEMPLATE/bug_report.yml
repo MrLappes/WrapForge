@@ -1,0 +1,78 @@
+name: Bug report
+description: Report something that does not work as documented
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Do not include credentials or confidential artwork.
+        Security issues must go through SECURITY.md, not this form.
+  - type: input
+    id: version
+    attributes:
+      label: WrapForge version
+      description: Version, tag, or commit SHA.
+      placeholder: 0.1.0-alpha.0 / commit abc1234
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Linux (X11)
+        - Linux (Wayland)
+        - Windows
+        - macOS
+        - Browser preview
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS version, WebKitGTK/WebView version, Blender version and install type (native/Flatpak/Snap).
+      placeholder: Ubuntu 26.04, WebKitGTK 2.52.6, Blender 5.2.0 Flatpak
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Exact steps, in order.
+      placeholder: |
+        1. Create a project
+        2. Import artwork...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include error text. Attach logs only after reviewing them for secrets.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Paste a redacted Diagnostics bundle or render log if relevant.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues.
+          required: true
+        - label: I reviewed logs/screenshots for confidential data.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true

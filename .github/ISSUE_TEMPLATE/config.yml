@@ -1,0 +1,9 @@
+# Replace OWNER/REPLACE with the published repository before enabling issues.
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/OWNER/REPLACE/security/advisories/new
+    about: Report security issues privately. Do not open a public issue.
+  - name: Questions and show-and-tell
+    url: https://github.com/OWNER/REPLACE/discussions
+    about: Ask for help or share a workflow. Replace this URL when the repository is published.

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">
+  <title>Number 07 — original WrapForge sample artwork</title>
+  <circle cx="300" cy="300" r="276" fill="#f4efe6"/>
+  <circle cx="300" cy="300" r="276" fill="none" stroke="#1b2026" stroke-width="18"/>
+  <path d="M300 24 A 276 276 0 0 1 576 300 L 520 300 A 220 220 0 0 0 300 80 Z" fill="#ff7a45"/>
+  <g fill="#1b2026">
+    <rect x="42" y="42" width="52" height="52"/>
+    <rect x="146" y="42" width="52" height="52"/>
+    <rect x="42" y="146" width="52" height="52"/>
+    <rect x="506" y="506" width="52" height="52"/>
+    <rect x="402" y="506" width="52" height="52"/>
+    <rect x="506" y="402" width="52" height="52"/>
+  </g>
+  <text x="300" y="404" text-anchor="middle" font-family="Space Grotesk, Inter, sans-serif" font-weight="700" font-size="300" fill="#1b2026">07</text>
+</svg>

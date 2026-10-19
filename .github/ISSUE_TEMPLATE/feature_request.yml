@@ -1,0 +1,63 @@
+name: Feature request
+description: Propose a capability or workflow improvement
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the workflow that fails, not only the button you want. Concrete
+        production failures are easier to prioritize.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to produce, and where does WrapForge get in the way?
+      placeholder: I need to print a curved bumper panel...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should happen? Include file formats, units, or printer constraints if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: How do you handle this today?
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Vehicle assets
+        - 3D viewport
+        - Artwork
+        - Projection / unfolding
+        - Print / colour
+        - Rendering
+        - Export
+        - Project / storage
+        - UI / accessibility
+        - i18n
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: What would "done" look like?
+      description: How could a maintainer verify it works?
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and the roadmap.
+          required: true
+        - label: I understand this is an alpha and features may be declined for scope.
+          required: true

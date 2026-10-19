@@ -1,0 +1,54 @@
+name: Vehicle asset
+description: Propose or contribute a vehicle asset
+title: "[Asset]: "
+labels: ["asset", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not upload manufacturer CAD, configurator data, third-party logos, or
+        models of unknown origin. Read docs/VEHICLE_ASSETS.md first.
+  - type: input
+    id: vehicle
+    attributes:
+      label: Vehicle
+      description: Make/model/year/body style, or "original sample" for generated assets.
+    validations:
+      required: true
+  - type: input
+    id: license
+    attributes:
+      label: License and source
+      description: License ID, source URL, attribution, and whether redistribution is permitted.
+    validations:
+      required: true
+  - type: input
+    id: dimensions
+    attributes:
+      label: Dimensions source
+      description: Where do the physical dimensions come from? Measured, official spec, or unverified?
+    validations:
+      required: true
+  - type: textarea
+    id: panels
+    attributes:
+      label: Panels and UVs
+      description: How many wrap-able panels? Are outer faces planar? Are UVs non-overlapping?
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Files
+      description: Link to GLB and manifest. Do not attach files you cannot license.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I have the right to redistribute this asset under the stated license.
+          required: true
+        - label: The asset contains no manufacturer CAD or trademarks unless licensed.
+          required: true
+        - label: I understand dimensions must be verified before production use.
+          required: true

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" width="1200" height="600">
+  <title>Velocity Stripes — original WrapForge sample artwork</title>
+  <g fill="none" stroke-linecap="round">
+    <path d="M-80 470 C 260 470 420 300 760 210 C 960 158 1120 150 1280 120" stroke="#ff7a45" stroke-width="118"/>
+    <path d="M-120 600 C 240 540 430 430 760 360 C 980 314 1140 300 1300 280" stroke="#f4efe6" stroke-width="42"/>
+    <path d="M-40 360 C 230 320 380 210 650 150 C 850 107 1040 100 1260 74" stroke="#1b2026" stroke-width="54"/>
+    <path d="M140 300 L 320 300" stroke="#ff7a45" stroke-width="20"/>
+    <path d="M520 210 L 640 210" stroke="#ff7a45" stroke-width="14"/>
+  </g>
+</svg>

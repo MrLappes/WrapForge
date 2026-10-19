@@ -1,0 +1,16 @@
+WrapForge
+Copyright 2026 The WrapForge Authors
+
+This product includes software developed by third parties. See
+THIRD_PARTY_NOTICES.md for the list of components and their licenses.
+
+WrapForge is licensed under the Apache License, Version 2.0. A copy of that
+license is provided in the LICENSE file.
+
+The bundled sample vehicle and sample artwork are original works released under
+CC0-1.0. They contain no manufacturer CAD data, trademarks, or third-party
+logos.
+
+Blender is an optional external dependency licensed under GPL-3.0. It is not
+distributed with WrapForge. WrapForge invokes a separately installed Blender as
+a subprocess.
